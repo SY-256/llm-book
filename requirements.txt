@@ -4,7 +4,7 @@ python-box==6.0.1
 omegaconf==2.2.3
 hydra-core==1.2.0
 scikit-learn==1.1.2
-pytorch-lightning==1.7.4
+pytorch-lightning==1.8.4
 pytorch-pfn-extras==0.6.1
 transformers==4.21.2
 datasets==2.4.0
