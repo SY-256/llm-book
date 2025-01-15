@@ -2,6 +2,10 @@ from pdfminer.high_level import extract_pages
 from pdfminer.layout import LTTextContainer, LTChar, LTLine, LAParams
 import re
 
+from pdfminer.high_level import extract_pages
+from pdfminer.layout import LTTextContainer, LTChar, LTLine, LAParams
+import re
+
 def extract_markdown_text(pdf_path):
     laparams = LAParams(
         detect_vertical=False,
@@ -17,12 +21,12 @@ def extract_markdown_text(pdf_path):
                 fonts.append(text_line.fontname)
                 sizes.append(text_line.size)
         
-        # 最も多く使用されているフォントとサイズを返す
         if fonts and sizes:
             return max(set(fonts), key=fonts.count), max(set(sizes), key=sizes.count)
         return None, None
 
     markdown_blocks = []
+    current_list_number = 0  # 番号付きリストのカウンター
     
     for page_layout in extract_pages(pdf_path, laparams=laparams):
         page_texts = []
@@ -37,7 +41,7 @@ def extract_markdown_text(pdf_path):
                 
                 font_name, font_size = get_font_info(element)
                 
-                # フォントサイズに基づいてマークダウンの見出しレベルを決定
+                # フォントサイズによる見出しレベルの決定
                 if font_size:
                     if font_size > 20:
                         text = f"# {text}"
@@ -46,7 +50,7 @@ def extract_markdown_text(pdf_path):
                     elif font_size > 14:
                         text = f"### {text}"
                 
-                # 太字フォントの検出
+                # 太字の検出
                 if font_name and ('bold' in font_name.lower() or 'heavy' in font_name.lower()):
                     if not text.startswith('#'):
                         text = f"**{text}**"
@@ -54,37 +58,52 @@ def extract_markdown_text(pdf_path):
                 page_texts.append({
                     'text': text,
                     'y': -y0,
-                    'x': x0
+                    'x': x0,
+                    'original_text': element.get_text().strip()  # 元のテキストを保持
                 })
         
         # ソート
         page_texts.sort(key=lambda x: (x['y'], x['x']))
         
-        # 箇条書きの検出と変換
+        # 箇条書きと番号付きリストの処理
         for block in page_texts:
             text = block['text']
-            # 行頭の記号を検出して箇条書きに変換
+            original_text = block['original_text']
+            
+            # 箇条書きの処理
             if text.lstrip().startswith(('•', '・', '○', '►')):
                 text = re.sub(r'^[•・○►]\s*', '* ', text.lstrip())
-            # 番号付きリストの検出
-            elif re.match(r'^\d+[\.\)］】]\s', text):
-                text = re.sub(r'^\d+([\.\)］】])\s', r'1. ', text)
+                current_list_number = 0  # 番号付きリストをリセット
+            
+            # 番号付きリストの処理
+            elif re.match(r'^\d+[\.\)］】]\s', original_text):
+                # 元のテキストから番号を抽出
+                number_match = re.match(r'^(\d+)', original_text)
+                if number_match:
+                    number = int(number_match.group(1))
+                    # 新しい番号付きリストの開始を検出
+                    if number == 1 or current_list_number == 0:
+                        current_list_number = 1
+                    else:
+                        current_list_number += 1
+                    text = re.sub(r'^\d+[\.\)］】]\s', f'{current_list_number}. ', text.lstrip())
+            else:
+                current_list_number = 0  # リスト以外のテキストでリセット
             
             markdown_blocks.append(text)
         
-        # ページ区切りの追加
+        # ページ区切り
         markdown_blocks.append('\n---\n')
     
     # 最後のページ区切りを削除
     if markdown_blocks[-1] == '\n---\n':
         markdown_blocks.pop()
     
-    # 連続する空行を1つにまとめる
+    # 連続する空行を整理
     markdown_text = '\n'.join(markdown_blocks)
     markdown_text = re.sub(r'\n{3,}', '\n\n', markdown_text)
     
     return markdown_text
-
 
 # 使用例
 pdf_path = 'example.pdf'
