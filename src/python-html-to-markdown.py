@@ -1,3 +1,7 @@
+import re
+from html.parser import HTMLParser
+from html import unescape
+
 class HTMLToMarkdownConverter(HTMLParser):
     def __init__(self):
         super().__init__()
@@ -8,12 +12,21 @@ class HTMLToMarkdownConverter(HTMLParser):
         self.code_block = False
         self.emphasis = False
         self.strong = False
-        self.in_function = False  # 関数内かどうかを追跡
-        self.in_script = False    # scriptタグ内かどうかを追跡
+        self.in_function = False    # 関数内かどうかを追跡
+        self.in_script = False      # scriptタグ内かどうかを追跡
+        self.in_excluded_tag = False # data-select-bank属性を持つタグ内かどうかを追跡
         
     def handle_starttag(self, tag, attrs):
-        # 関数内またはscriptタグ内の場合は処理をスキップ
-        if self.in_function or self.in_script:
+        # 属性をdict形式に変換
+        attrs = dict(attrs)
+        
+        # data-select-bank="埼玉りそな銀行"の属性を持つタグをチェック
+        if 'data-select-bank' in attrs and attrs['data-select-bank'] == "埼玉りそな銀行":
+            self.in_excluded_tag = True
+            return
+
+        # 除外されたタグ、関数内、scriptタグ内の場合は処理をスキップ
+        if self.in_excluded_tag or self.in_function or self.in_script:
             return
             
         # scriptタグの開始
@@ -21,8 +34,6 @@ class HTMLToMarkdownConverter(HTMLParser):
             self.in_script = True
             return
             
-        attrs = dict(attrs)
-        
         if tag == 'h1':
             if self.markdown and self.markdown[-1] != '\n\n':
                 self.markdown.append('\n\n')
@@ -82,6 +93,9 @@ class HTMLToMarkdownConverter(HTMLParser):
             self.list_stack.append('1')
             self.list_item_count = 0
         elif tag == 'li':
+            # リストスタックが空の場合は処理をスキップ
+            if not self.list_stack:
+                return
             indent = '  ' * (len(self.list_stack) - 1)
             if self.list_stack[-1] == '*':
                 self.markdown.append(f'\n{indent}* ')
@@ -94,6 +108,11 @@ class HTMLToMarkdownConverter(HTMLParser):
             self.markdown.append('> ')
             
     def handle_endtag(self, tag):
+        # 除外されたタグの終了をチェック
+        if self.in_excluded_tag:
+            self.in_excluded_tag = False
+            return
+
         # scriptタグの終了
         if tag == 'script':
             self.in_script = False
@@ -127,14 +146,17 @@ class HTMLToMarkdownConverter(HTMLParser):
                 self.code_block = False
                 self.markdown.append('\n```\n\n')
         elif tag in ['ul', 'ol']:
-            self.list_stack.pop()
-            if not self.list_stack:
-                self.markdown.append('\n\n')
+            # リストスタックが空でない場合のみpop処理を行う
+            if self.list_stack:
+                self.list_stack.pop()
+                if not self.list_stack:
+                    self.markdown.append('\n\n')
         elif tag == 'blockquote':
             self.markdown.append('\n\n')
             
     def handle_data(self, data):
-        if self.in_function or self.in_script:
+        # 除外されたタグ、関数内、scriptタグ内の場合は処理をスキップ
+        if self.in_excluded_tag or self.in_function or self.in_script:
             return
             
         if data.strip():
@@ -144,6 +166,17 @@ class HTMLToMarkdownConverter(HTMLParser):
                 self.markdown.append(data.strip())
             
     def convert(self, html):
+        # 状態をリセット
+        self.markdown = []
+        self.list_stack = []
+        self.list_item_count = 0
+        self.code_block = False
+        self.emphasis = False
+        self.strong = False
+        self.in_function = False
+        self.in_script = False
+        self.in_excluded_tag = False
+        
         self.feed(html)
         markdown = ''.join(self.markdown)
         # 複数の空行を1つにまとめる
