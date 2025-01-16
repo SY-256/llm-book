@@ -12,8 +12,19 @@ class HTMLToMarkdownConverter(HTMLParser):
         self.code_block = False
         self.emphasis = False
         self.strong = False
+        self.in_function = False  # 関数内かどうかを追跡
+        self.in_script = False    # scriptタグ内かどうかを追跡
         
     def handle_starttag(self, tag, attrs):
+        # 関数内またはscriptタグ内の場合は処理をスキップ
+        if self.in_function or self.in_script:
+            return
+            
+        # scriptタグの開始
+        if tag == 'script':
+            self.in_script = True
+            return
+            
         attrs = dict(attrs)
         
         if tag == 'h1':
@@ -40,18 +51,19 @@ class HTMLToMarkdownConverter(HTMLParser):
             self.emphasis = True
             self.markdown.append('*')
         elif tag == 'code':
-            if 'class' in attrs:
-                self.code_block = True
-                self.markdown.append(f"\n```{attrs['class']}\n")
+            content = ''.join(attrs.get('class', '')).lower()
+            if 'function' in content or 'def' in content:
+                self.in_function = True
             else:
-                self.markdown.append('`')
+                if 'class' in attrs:
+                    self.code_block = True
+                    self.markdown.append(f"\n```{attrs['class']}\n")
+                else:
+                    self.markdown.append('`')
         elif tag == 'pre':
-            if not self.code_block:
+            if not self.code_block and not self.in_function:
                 self.code_block = True
                 self.markdown.append('\n```\n')
-        elif tag == 'img' and 'src' in attrs:
-            alt = attrs.get('alt', '')
-            self.markdown.append(f'![{alt}]({attrs["src"]})')
         elif tag == 'ul':
             self.list_stack.append('*')
         elif tag == 'ol':
@@ -68,6 +80,18 @@ class HTMLToMarkdownConverter(HTMLParser):
             self.markdown.append('\n> ')
             
     def handle_endtag(self, tag):
+        # scriptタグの終了
+        if tag == 'script':
+            self.in_script = False
+            return
+            
+        if tag == 'code' and self.in_function:
+            self.in_function = False
+            return
+            
+        if self.in_function or self.in_script:
+            return
+            
         if tag == 'p':
             self.markdown.append('\n\n')
         elif tag == 'strong' or tag == 'b':
@@ -94,8 +118,14 @@ class HTMLToMarkdownConverter(HTMLParser):
             self.markdown.append('\n\n')
             
     def handle_data(self, data):
+        if self.in_function or self.in_script:
+            return
+            
         if data.strip():
-            self.markdown.append(data.strip())
+            # 'def'で始まる行か関数定義っぽい行をスキップ
+            if not (data.strip().startswith('def ') or 
+                   re.match(r'^[a-zA-Z_][a-zA-Z0-9_]*\s*\([^)]*\)\s*:', data.strip())):
+                self.markdown.append(data.strip())
             
     def convert(self, html):
         self.feed(html)
@@ -118,24 +148,3 @@ def convert_html_to_markdown(html):
     """
     converter = HTMLToMarkdownConverter()
     return converter.convert(html)
-
-# 使用例
-if __name__ == "__main__":
-    html_example = """
-    <h1>Welcome to My Page</h1>
-    <p>This is a <strong>sample</strong> paragraph with some <em>emphasized</em> text.</p>
-    <h2>Features</h2>
-    <ul>
-        <li>Simple to use</li>
-        <li>Lightweight</li>
-        <li>Fast conversion</li>
-    </ul>
-    <p>Visit our <a href="https://example.com">website</a> for more information.</p>
-    <pre><code class="python">
-    def hello_world():
-        print("Hello, World!")
-    </code></pre>
-    """
-    
-    markdown = convert_html_to_markdown(html_example)
-    print(markdown)
