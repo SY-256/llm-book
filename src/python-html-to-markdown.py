@@ -1,7 +1,3 @@
-import re
-from html.parser import HTMLParser
-from html import unescape
-
 class HTMLToMarkdownConverter(HTMLParser):
     def __init__(self):
         super().__init__()
@@ -28,19 +24,31 @@ class HTMLToMarkdownConverter(HTMLParser):
         attrs = dict(attrs)
         
         if tag == 'h1':
+            if self.markdown and self.markdown[-1] != '\n\n':
+                self.markdown.append('\n\n')
             self.markdown.append('# ')
         elif tag == 'h2':
+            if self.markdown and self.markdown[-1] != '\n\n':
+                self.markdown.append('\n\n')
             self.markdown.append('## ')
         elif tag == 'h3':
+            if self.markdown and self.markdown[-1] != '\n\n':
+                self.markdown.append('\n\n')
             self.markdown.append('### ')
         elif tag == 'h4':
+            if self.markdown and self.markdown[-1] != '\n\n':
+                self.markdown.append('\n\n')
             self.markdown.append('#### ')
         elif tag == 'h5':
+            if self.markdown and self.markdown[-1] != '\n\n':
+                self.markdown.append('\n\n')
             self.markdown.append('##### ')
         elif tag == 'h6':
+            if self.markdown and self.markdown[-1] != '\n\n':
+                self.markdown.append('\n\n')
             self.markdown.append('###### ')
         elif tag == 'p':
-            if self.markdown and self.markdown[-1] != '\n':
+            if self.markdown and self.markdown[-1] != '\n\n':
                 self.markdown.append('\n\n')
         elif tag == 'br':
             self.markdown.append('\n')
@@ -65,8 +73,12 @@ class HTMLToMarkdownConverter(HTMLParser):
                 self.code_block = True
                 self.markdown.append('\n```\n')
         elif tag == 'ul':
+            if self.markdown and self.markdown[-1] != '\n\n':
+                self.markdown.append('\n\n')
             self.list_stack.append('*')
         elif tag == 'ol':
+            if self.markdown and self.markdown[-1] != '\n\n':
+                self.markdown.append('\n\n')
             self.list_stack.append('1')
             self.list_item_count = 0
         elif tag == 'li':
@@ -77,7 +89,9 @@ class HTMLToMarkdownConverter(HTMLParser):
                 self.list_item_count += 1
                 self.markdown.append(f'\n{indent}{self.list_item_count}. ')
         elif tag == 'blockquote':
-            self.markdown.append('\n> ')
+            if self.markdown and self.markdown[-1] != '\n\n':
+                self.markdown.append('\n\n')
+            self.markdown.append('> ')
             
     def handle_endtag(self, tag):
         # scriptタグの終了
@@ -92,7 +106,9 @@ class HTMLToMarkdownConverter(HTMLParser):
         if self.in_function or self.in_script:
             return
             
-        if tag == 'p':
+        if tag in ['h1', 'h2', 'h3', 'h4', 'h5', 'h6']:
+            self.markdown.append('\n\n')
+        elif tag == 'p':
             self.markdown.append('\n\n')
         elif tag == 'strong' or tag == 'b':
             self.strong = False
@@ -113,7 +129,7 @@ class HTMLToMarkdownConverter(HTMLParser):
         elif tag in ['ul', 'ol']:
             self.list_stack.pop()
             if not self.list_stack:
-                self.markdown.append('\n')
+                self.markdown.append('\n\n')
         elif tag == 'blockquote':
             self.markdown.append('\n\n')
             
