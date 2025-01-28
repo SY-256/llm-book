@@ -19,36 +19,39 @@ st.markdown("""
         padding-right: 1rem;
     }
 
-    /* ヘッダー部分のスタイル */
-    .header-container {
+    /* アプリ全体のコンテナ */
+    .app-container {
+        display: flex;
+        flex-direction: column;
+        height: 100vh;
         position: fixed;
         top: 0;
         left: 0;
         right: 0;
-        background-color: white;
-        padding: 1rem 1rem 0.5rem 1rem;
-        z-index: 1000;
-        border-bottom: 1px solid #ddd;
     }
 
-    /* チャットコンテナのスタイル */
+    /* ヘッダー部分のスタイル */
+    .header-container {
+        background-color: white;
+        padding: 1rem;
+        border-bottom: 1px solid #ddd;
+        flex-shrink: 0;
+    }
+
+    /* チャットメッセージ領域のスタイル */
     .chat-container {
-        margin-top: 8rem;  /* ヘッダーの高さ分マージンを設定 */
-        margin-bottom: 5rem;  /* 入力欄の高さ分マージンを設定 */
+        flex-grow: 1;
         overflow-y: auto;
-        height: calc(100vh - 13rem);  /* ヘッダーと入力欄の高さを考慮 */
+        padding: 1rem;
+        margin-bottom: 0.5rem;
     }
 
     /* 入力欄のスタイル */
     .input-container {
-        position: fixed;
-        bottom: 0;
-        left: 0;
-        right: 0;
         background-color: white;
         padding: 1rem;
-        z-index: 1000;
         border-top: 1px solid #ddd;
+        flex-shrink: 0;
     }
 
     /* クリアボタンのスタイル */
@@ -73,6 +76,11 @@ st.markdown("""
     /* Streamlitデフォルトのパディングを調整 */
     .stChatInput {
         padding-bottom: 0;
+    }
+
+    /* チャットメッセージのスタイル調整 */
+    .stChatMessage {
+        margin-bottom: 0.5rem;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -169,9 +177,7 @@ def create_copy_button(text, button_id):
 USER_NAME = "user"
 ASSISTANT_NAME = "assistant"
 
-def response_chatgpt(
-    user_msg: str,
-):
+def response_chatgpt(user_msg: str):
     """ChatGPTのレスポンスを取得"""
     response = client.chat.completions.create(
         messages=[
@@ -183,6 +189,9 @@ def response_chatgpt(
     return response
 
 def main():
+    # アプリ全体のコンテナを開始
+    st.markdown('<div class="app-container">', unsafe_allow_html=True)
+
     # ヘッダー部分
     st.markdown('<div class="header-container">', unsafe_allow_html=True)
     col1, col2 = st.columns([4, 1])
@@ -198,9 +207,10 @@ def main():
     if "chat_log" not in st.session_state:
         st.session_state.chat_log = []
 
-    # チャット表示部分
+    # スクロール可能なチャットメッセージ領域
     st.markdown('<div class="chat-container">', unsafe_allow_html=True)
-    # 以前のチャットログを表示
+    
+    # チャットログの表示
     for i, chat in enumerate(st.session_state.chat_log):
         with st.chat_message(chat["name"]):
             if chat["name"] == ASSISTANT_NAME:
@@ -210,11 +220,15 @@ def main():
                 )
             else:
                 st.write(chat["msg"])
+    
     st.markdown('</div>', unsafe_allow_html=True)
 
     # 入力部分
     st.markdown('<div class="input-container">', unsafe_allow_html=True)
     user_msg = st.chat_input("ここにメッセージを入力")
+    st.markdown('</div>', unsafe_allow_html=True)
+
+    # アプリ全体のコンテナを終了
     st.markdown('</div>', unsafe_allow_html=True)
 
     if user_msg:
