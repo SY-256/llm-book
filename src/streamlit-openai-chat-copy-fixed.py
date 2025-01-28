@@ -16,54 +16,70 @@ def escape_text_for_js(text):
 
 def create_copy_button(text, button_id):
     """コピーボタン付きのHTMLを生成する関数"""
-    escaped_text = escape_text_for_js(text)
-    
-    html = (
-        '<div style="display: flex; align-items: start; margin: 0;">'
-        f'<div style="flex-grow: 1;">{text}</div>'
-        f'<button id="{button_id}" '
-        f'onclick="copyText({escaped_text})" '
-        'style="'
-        'background-color: #f0f2f6;'
-        'border: none;'
-        'padding: 5px 10px;'
-        'border-radius: 4px;'
-        'cursor: pointer;'
-        'display: flex;'
-        'align-items: center;'
-        'font-size: 0.8em;'
-        'margin-left: 10px;'
-        'min-width: 70px;'
-        'justify-content: center;'
-        '">'
-        '📋 Copy'
-        '</button>'
-        '</div>'
-        
-        '<script>'
-        'function copyText(text) {'
-        f'  const button = document.getElementById("{button_id}");'
-        '   navigator.clipboard.writeText(text)'
-        '   .then(function() {'
-        '       const originalText = button.innerHTML;'
-        '       button.innerHTML = "✅ Copied!";'
-        '       button.style.backgroundColor = "#90EE90";'
-        '       setTimeout(function() {'
-        '           button.innerHTML = originalText;'
-        '           button.style.backgroundColor = "#f0f2f6";'
-        '       }, 2000);'
-        '   })'
-        '   .catch(function() {'
-        '       button.innerHTML = "❌ Failed";'
-        '       button.style.backgroundColor = "#ffcccb";'
-        '       setTimeout(function() {'
-        '           button.innerHTML = "📋 Copy";'
-        '           button.style.backgroundColor = "#f0f2f6";'
-        '       }, 2000);'
-        '   });'
-        '}'
-        '</script>'
-    )
+    # テキストの処理
+    text_for_display = text.replace('"', '&quot;').replace('\n', '<br>')
+    text_for_copy = json.dumps(text)
+
+    html = f"""
+    <div style="display: flex; align-items: start; margin: 0;">
+        <div style="flex-grow: 1;">{text_for_display}</div>
+        <button
+            onclick='copyToClipboard({text_for_copy}, "{button_id}")'
+            id="{button_id}"
+            style="
+                background-color: #f0f2f6;
+                border: none;
+                padding: 5px 10px;
+                border-radius: 4px;
+                cursor: pointer;
+                display: flex;
+                align-items: center;
+                font-size: 0.8em;
+                margin-left: 10px;
+                min-width: 70px;
+                justify-content: center;
+            "
+        >
+            📋 Copy
+        </button>
+    </div>
+
+    <script>
+    async function copyToClipboard(text, buttonId) {{
+        try {{
+            // テキストエリアを作成してコピー
+            const textarea = document.createElement('textarea');
+            textarea.value = text;
+            document.body.appendChild(textarea);
+            textarea.select();
+            document.execCommand('copy');
+            document.body.removeChild(textarea);
+
+            // ボタンの表示を更新
+            const button = document.getElementById(buttonId);
+            const originalText = button.innerHTML;
+            button.innerHTML = '✅ Copied!';
+            button.style.backgroundColor = '#90EE90';
+            
+            setTimeout(function() {{
+                button.innerHTML = originalText;
+                button.style.backgroundColor = '#f0f2f6';
+            }}, 2000);
+        }} catch (err) {{
+            // エラー時の処理
+            const button = document.getElementById(buttonId);
+            button.innerHTML = '❌ Failed';
+            button.style.backgroundColor = '#ffcccb';
+            
+            setTimeout(function() {{
+                button.innerHTML = '📋 Copy';
+                button.style.backgroundColor = '#f0f2f6';
+            }}, 2000);
+            console.error('Failed to copy:', err);
+        }}
+    }}
+    </script>
+    """
     return html
 
 st.title("StreamlitのChatGPTサンプル")
